@@ -7,7 +7,7 @@ from invokeai.app.invocations.compel import ConditioningField
 from pydantic import BaseModel, Field
 import torch
 from typing import Literal, Optional, Callable, List, Union
-from PIL import ImageFilter, Image
+from PIL import ImageFilter, Image, ImageDraw, ImageFont
 import random
 import torch.nn.functional as F
 #importing libraries 
@@ -55,7 +55,7 @@ class ImageAndMaskOutput(BaseInvocationOutput):
             title="Depth to 3D",
             tags=["image", "depth", "3D"],
             category="image",
-            version="1.0.0",)
+            version="1.2.0",)
 class DepthTo3DInvocation(BaseInvocation):
     image: ImageField = InputField(
         title="Base Image",
@@ -74,6 +74,11 @@ class DepthTo3DInvocation(BaseInvocation):
         title="Shift Factor",
         description="The shift factor to be used for the stereoscopic method",
         default=50.0,
+    )
+    cross_eye: bool = InputField(
+        title="Cross Eye",
+        description="Reverse the left and right images for cross-eye viewing",
+        default=False,
     )
 
     def stereoscopic(self, image, depth):
@@ -114,6 +119,9 @@ class DepthTo3DInvocation(BaseInvocation):
                     right_tracking[y, new_x_right, :] = 255
 
         # Concatenate left and right stereoscopic images
+        if self.cross_eye:
+            left_stereoscopic_image, right_stereoscopic_image = right_stereoscopic_image, left_stereoscopic_image
+            left_tracking, right_tracking = right_tracking, left_tracking
         stereoscopic_image = np.concatenate((left_stereoscopic_image, right_stereoscopic_image), axis=1)
         tracking_image = np.concatenate((left_tracking, right_tracking), axis=1)
         
@@ -127,7 +135,7 @@ class DepthTo3DInvocation(BaseInvocation):
 
         # Convert the numpy array back to a PIL image
         stereoscopic_image = Image.fromarray(filled_stereoscopic_image)
-        tracking_image = Image.fromarray(tracking_image)
+        tracking_image = Image.fromarray(tracking_image) 
 
 
         return stereoscopic_image, tracking_image
